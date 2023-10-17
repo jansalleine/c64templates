@@ -11,7 +11,7 @@ Boilerplate-Code to quickly start a new C64 project.
  - [png2prg 1.2](https://csdb.dk/release/?id=220484)
  - [VICE](https://vice-emu.sourceforge.io/) – the Versatile Commodore Emulator
 
-The `compile.sh` script expects theese tools to be runable from **$PATH** under the following aliases:
+The `compile.sh` and PHP scripts expects theese tools to be runable from **$PATH** under the following aliases:
 
 | binary   | alias     |
 | :------- | :-------- |
@@ -19,6 +19,7 @@ The `compile.sh` script expects theese tools to be runable from **$PATH** under 
 | hexdump  | hexdump   |
 | acme     | acme      |
 | exomizer | exomizer3 |
+| png2prg  | png2prg   |
 | x64sc    | vice      |
 
  **PHP** should be available for shell script usage with shebang `#!/usr/bin/env php`.
