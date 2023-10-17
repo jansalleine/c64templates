@@ -53,6 +53,16 @@ LIGHT_GREY          = 0x0F
 ; ------------------------------------------------------------------------------
 IRQ_LINE00          = 0x00
 IRQ_LINE01          = 0xF8
+NUM_IRQS            = 2
+; ------------------------------------------------------------------------------
+                    !macro irq_lines_tab {
+                        !byte IRQ_LINE00, IRQ_LINE01
+                    }
+; ------------------------------------------------------------------------------
+                    !macro irq_tab {
+                        !byte <irq00, <irq01
+                        !byte >irq00, >irq01
+                    }
 ; ==============================================================================
 zp_start            = 0x02
 irq_ready_top       = zp_start
@@ -77,9 +87,9 @@ keyscan             = 0xEA87
 ; ==============================================================================
 code_start          = 0x2000
 vicbank0            = 0x0000
-charset0            = vicbank0+0x1800
+charset0            = vicbank0+0x1000
 vidmem0             = vicbank0+0x0400
-sprite_data         = vicbank0+0x0C00
+sprite_data         = vicbank0+0x0800
 sprite_base         = <((sprite_data-vicbank0)/0x40)
 dd00_val0           = <!(vicbank0/0x4000) & 3
 d018_val0           = <(((vidmem0-vicbank0)/0x400) << 4)+ <(((charset0-vicbank0)/0x800) << 1)
@@ -251,6 +261,9 @@ basicfade:          lda 0xD020
                     dec .ct+1
 +                   rts
 ; ------------------------------------------------------------------------------
+; color fade tables
+; see "Colfade Doc" by veto: https://csdb.dk/release/?id=132276
+; ------------------------------------------------------------------------------
 .colfade_bl_tab:    !byte 0x01, 0x0D, 0x03, 0x0C, 0x04, 0x02, 0x09, 0xF0
 .colfade_wh_tab0:   !byte 0x00, 0x06, 0x0B, 0x04, 0x0C, 0x03, 0x0D, 0xF1
 .colfade_wh_tab1:   !byte 0x09, 0x02, 0x08, 0x0A, 0x0F, 0x07, 0xF1
@@ -305,7 +318,6 @@ basicfade:          lda 0xD020
                     rts
 ; ==============================================================================
                     !zone IRQ
-                    NUM_IRQS = 0x01
                     !align 255,0
 irq:                sta savea               ; 03  10  (07+03)
                     stx savex               ; 03  13
@@ -336,9 +348,9 @@ irq_end:            lda 0xD012
 -                   cmp 0xD012
                     beq -
 .irq_index:         ldx #0x00
-                    lda irq_tab_lo,x
+                    lda irq_tab,x
                     sta irq_next+1
-                    lda irq_tab_hi,x
+                    lda irq_tab+NUM_IRQS,x
                     sta irq_next+2
                     lda irq_lines,x
                     sta 0xD012
@@ -346,7 +358,7 @@ irq_end:            lda 0xD012
                     inc irq_plus_cmp+1
                     inc .irq_index+1
                     lda .irq_index+1
-                    cmp #NUM_IRQS
+irq_num_cmp:        cmp #NUM_IRQS
                     bne +
                     lda #0x00
                     sta .irq_index+1
@@ -361,9 +373,8 @@ irq_end:            lda 0xD012
                     ldx savex
                     ldy savey
                     rti
-irq_tab_lo:         !byte <irq00, <irq01
-irq_tab_hi:         !byte >irq00, >irq01
-irq_lines:          !byte IRQ_LINE00, IRQ_LINE01
+irq_tab:            +irq_tab
+irq_lines:          +irq_lines_tab
 ; ------------------------------------------------------------------------------
                     !align 255,0
 irq00:              +flag_set irq_ready_top

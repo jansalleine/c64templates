@@ -8,10 +8,9 @@ $0008: frame_ct_0
 $0009: frame_ct_1
 $000A: frame_ct_2
 $0400: vidmem0
-$0C00: sprite_data
-$1000: music_init
+$0800: sprite_data
+$1000: music_init, charset0
 $1003: music_play
-$1800: charset0
 $2000: code_start
 $200E: init_code
 $2023: init_irq
@@ -29,8 +28,8 @@ $2200: irq
 $222D: irq_plus_cmp
 $2234: irq_next
 $2237: irq_end
-$2280: irq_tab_lo
-$2282: irq_tab_hi
+$225F: irq_num_cmp
+$2280: irq_tab
 $2284: irq_lines
 $2300: irq00
 $2307: enable_music
