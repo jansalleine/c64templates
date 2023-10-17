@@ -1,0 +1,318 @@
+#!/usr/bin/env php
+<?php
+
+$blacklist = [
+
+];
+
+/*
+ * $png2prgArgs map filenames to i.e. forced modes or bitpairs if necessary
+ *
+ * -mode string
+ *      force graphics mode to
+ *          koala
+ *          hires
+ *          mccharset
+ *          sccharset
+ *          scsprites
+ *          mcsprites
+ */
+$png2prgArgs = [
+    'xmas.png' => '-mode koala',
+];
+
+function convertCtm(string $name, string $target) : void
+{
+    $command = "hexdump -v -e '/1 \"%02X\"' $name | head -c44 | tail -c2";
+    $output = [];
+    $err = 1;
+
+    @exec($command, $output, $err);
+
+    if ($err) return;
+    if (!array_key_exists('0', $output)) return;
+
+    $numChars = (int)hexdec($output['0'])+1;
+    $charDataLen = $numChars * 8;
+
+    /*
+     * now dd only the charset data part to a new binary
+     */
+    $command = "dd bs=1 skip=23 count=$charDataLen if=$name of=$target";
+
+    @exec($command, $output, $err);
+
+    if ($err) echo "something went wrong converting $name to $target" . PHP_EOL;
+}
+
+function convertSid(string $name, string $target) : void
+{
+    $command = "dd bs=1 skip=126 if=$name of=$target";
+    $output = [];
+    $err = 1;
+
+    @exec($command, $output, $err);
+
+    if ($err) echo "something went wrong converting $name to $target" . PHP_EOL;
+}
+
+function convertSpd(string $name, string $target) : void
+{
+    /*
+     * get number of sprites in file
+     * SDP file format V5:
+     * SPQ       [$05,$06] : 2 bytes : Sprite quantity (16-bit).
+     *
+     * we only use byte $06, as it's not realistic to have more
+     * that 255 sprites in one file.
+     */
+    $command = "hexdump -v -e '/1 \"%02X\"' $name | head -c12 | tail -c2";
+    $output = [];
+    $err = 1;
+
+    @exec($command, $output, $err);
+
+    if ($err) return;
+    if (!array_key_exists('0', $output)) return;
+
+    $numSprites = (int)hexdec($output['0']);
+    $spriteDataLen = $numSprites * 64;
+
+    /*
+     * now dd only the sprite data part to a new binary
+     */
+    $command = "dd bs=1 skip=20 count=$spriteDataLen if=$name of=$target";
+
+    @exec($command, $output, $err);
+
+    if ($err) echo "something went wrong converting $name to $target" . PHP_EOL;
+}
+
+function convertPng(string $name, string $target) : void
+{
+    global $png2prgArgs;
+
+    $args = array_key_exists(basename($name), $png2prgArgs) ?
+            $png2prgArgs[basename($name)] : '';
+    $targetPrg = $target . '.prg';
+    $targetScr = $target . '.scr';
+    $targetCol = $target . '.col';
+    $targetChr = $target . '.chr';
+    $targetBmp = $target . '.bmp';
+    $targetSpr = $target . '.spr';
+
+    $command = "png2prg $args -o $targetPrg $name";
+    $output = [];
+    $err = 1;
+
+    @exec($command, $output, $err);
+    if ($err)
+    {
+        echo "something went wrong converting $name to $targetPrg" . PHP_EOL;
+        return;
+    }
+
+    $format = getPng2PrgOutputFormat($output);
+
+    switch ($format)
+    {
+        case 'koala':
+            $output = [];
+            $err = 1;
+
+            @exec(
+                "dd bs=1 skip=9002 count=1000 if=$targetPrg of=$targetCol",
+                $output,
+                $err
+            );
+
+            if ($err)
+            {
+                echo "something went wrong converting $targetPrg to $targetCol"
+                        . PHP_EOL;
+                break;
+            }
+
+        case 'hires':
+            $output = [];
+            $err = 1;
+
+            @exec(
+                "dd bs=1 skip=2 count=8000 if=$targetPrg of=$targetBmp",
+                $output,
+                $err
+            );
+
+            if ($err)
+            {
+                echo "something went wrong converting $targetPrg to $targetBmp"
+                        . PHP_EOL;
+                break;
+            }
+
+            $err = 1;
+
+            @exec(
+                "dd bs=1 skip=8002 count=1000 if=$targetPrg of=$targetScr",
+                $output,
+                $err
+            );
+
+            if ($err)
+            {
+                echo "something went wrong converting $targetPrg to $targetScr"
+                        . PHP_EOL;
+                break;
+            }
+
+            @exec("rm -f $targetPrg");
+            break;
+
+        case 'singlecolor charset':
+            $output = [];
+            $err = 1;
+
+            @exec(
+                "dd bs=1 skip=2 count=2048 if=$targetPrg of=$targetChr",
+                $output,
+                $err
+            );
+
+            if ($err)
+            {
+                echo "something went wrong converting $targetPrg to $targetChr"
+                        . PHP_EOL;
+                break;
+            }
+
+            $err = 1;
+
+            @exec(
+                "dd bs=1 skip=2050 count=1000 if=$targetPrg of=$targetScr",
+                $output,
+                $err
+            );
+
+            if ($err)
+            {
+                echo "something went wrong converting $targetPrg to $targetScr"
+                        . PHP_EOL;
+                break;
+            }
+
+            @exec("rm -f $targetPrg");
+            break;
+
+        case 'singlecolor sprites':
+            $err = 1;
+
+            @exec(
+                "dd bs=1 skip=2 if=$targetPrg of=$targetSpr",
+                $output,
+                $err
+            );
+
+            if ($err)
+            {
+                echo "something went wrong converting $targetPrg to $targetSpr"
+                        . PHP_EOL;
+                break;
+            }
+
+            @exec("rm -f $targetPrg");
+            break;
+
+        default:
+            echo "couldn't decide format of $name." . PHP_EOL
+                    . "prg output only: $targetPrg" . PHP_EOL;
+            break;
+    }
+}
+
+function getPng2PrgOutputFormat(array $output) : string
+{
+    $convLine = '';
+    /*
+     * find the line with the converted info
+     * png2prg echoes a line like this:
+     *
+     * converted "INFILE" to "OUFILE" in "FORMAT" format
+     *
+     * step 1.)     look for a line starting with 'converted'
+     */
+    foreach ($output as $line)
+    {
+        if (substr($line, 0, 9) === 'converted')
+        {
+            $convLine = $line;
+            break;
+        }
+    }
+
+    /*
+     * step 2.)     split the line on char " to array
+     *              and return element '5' with the FORMAT
+     */
+    $convLineArr = explode('"', $convLine);
+    if (!array_key_exists('5', $convLineArr)) return '';
+
+    return trim($convLineArr['5']);
+}
+
+$cwd = dirname(__FILE__) . '/';
+
+$resPath = $cwd . '../../res/';
+$gfxResPath = $resPath . 'gfx/';
+$sidResPath = $resPath . 'sid/';
+
+$gfxTargetPath = $cwd . '../gfx/';
+$sidTargetPath = $cwd . '../sid/';
+
+@exec("rm -f $gfxTargetPath*");
+@exec("rm -f $sidTargetPath*");
+
+$gfxRes = scandir($gfxResPath, 0);
+$sidRes = scandir($sidResPath, 0);
+
+foreach (array_merge($gfxRes, $sidRes) as $filename)
+{
+    if (in_array($filename, $blacklist)) continue;
+
+    $splitnameArr = explode('.', $filename);
+
+    if (!count($splitnameArr) === 2) continue;
+
+    switch ($splitnameArr[1])
+    {
+        case 'ctm':
+            convertCtm(
+                $gfxResPath . $filename,
+                $gfxTargetPath . $splitnameArr[0] . '.chr'
+            );
+            break;
+
+        case 'png':
+            convertPng(
+                $gfxResPath . $filename,
+                $gfxTargetPath . $splitnameArr[0]
+            );
+            break;
+
+        case 'sid':
+            convertSid(
+                $sidResPath . $filename,
+                $sidTargetPath . $splitnameArr[0] . '.mus'
+            );
+            break;
+
+        case 'spd':
+            convertSpd(
+                $gfxResPath . $filename,
+                $gfxTargetPath . $splitnameArr[0] . '.spr'
+            );
+            break;
+
+        default:
+            break;
+    }
+}

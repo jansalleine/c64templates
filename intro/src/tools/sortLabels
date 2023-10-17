@@ -1,0 +1,80 @@
+#!/usr/bin/env php
+<?php
+
+$blacklist = [
+    'dd00_val0',
+    'dd00_val1',
+    'dd00_val2',
+    'dd00_val3',
+    'dd00_val4',
+    'dd00_val5',
+    'd018_val0',
+    'd018_val1',
+    'd018_val2',
+    'd018_val3',
+    'd018_val4',
+    'd018_val5',
+    'sprite_base',
+    'sprite_base0',
+    'i',
+    'j',
+    'k',
+    'l',
+    'm',
+    'vicbank0',
+    'vicbank1',
+    'vicbank2',
+    'vicbank3',
+    'vicbank4',
+    'vicbank5',
+];
+
+$cwd = dirname(__FILE__) . '/';
+
+$filename = $cwd . '../labels.asm';
+$fileArray = @file($filename);
+
+$sortedLines = [];
+
+foreach ($fileArray as $line)
+{
+    $lineArray = explode("=", $line);
+
+    foreach ($lineArray as $key => $value)
+    {
+        $newValueArray = explode(";", $value);
+        $newValue = trim(str_replace('$', '', $newValueArray[0]));
+
+        if ($key == array_key_last($lineArray))
+        {
+            $lineArray[$key] = hexdec($newValue);
+        }
+        else
+        {
+            $lineArray[$key] = $newValue;
+        }
+    }
+
+    $lineArray[0] = str_replace('+2', '', $lineArray[0]);
+
+    if (!in_array($lineArray[0], $blacklist)
+        && !(strtoupper($lineArray[0]) === $lineArray[0])
+    )
+    {
+        if (array_key_exists($lineArray[1], $sortedLines))
+        {
+            $sortedLines[$lineArray[1]] .= ', ' . $lineArray[0];
+        }
+        else
+        {
+            $sortedLines[$lineArray[1]] = $lineArray[0];
+        }
+    }
+}
+
+ksort($sortedLines);
+
+foreach ($sortedLines as $address => $label)
+{
+    printf('$%04X: %s' . PHP_EOL, $address, $label);
+}

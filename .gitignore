@@ -1,0 +1,9 @@
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+*.avi
+res/gfx/*.asm
+labels.asm
+out.prg

@@ -1,0 +1,174 @@
+#!/usr/bin/env php
+<?php
+
+define('EXIT_SUCCESS', 0);
+define('EXIT_FAILURE', 1);
+
+$defaultChars = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+    'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+    'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
+    'y', 'z',
+    '0', '1', '2', '3', '4', '5', '6', '7',
+    '8', '9',
+    '.', ',', ':', ';', '"', "'", '!', '?',
+    '<', '>', '(', ')', '[', ']',
+    '/', '-', '@',
+    '&', '*'
+];
+
+$uppercaseChars = [
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+    'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+    'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+    'Y', 'Z'
+];
+
+$convTabIn = [
+    'ä',
+    'ö',
+    'ü',
+    'Ä',
+    'Ö',
+    'Ü',
+    'ß',
+    '^',
+];
+
+$convTabOut = [
+    'ae',
+    'oe',
+    'ue',
+    'Ae',
+    'Oe',
+    'Ue',
+    'ss',
+    '/',
+];
+
+function convert(string $str, array $allowedChars) : array
+{
+    global $convTabIn;
+    global $convTabOut;
+
+    $strings = explode("\n", $str);
+    $output = [];
+
+    foreach ($strings as $str)
+    {
+        $str = str_replace($convTabIn, $convTabOut, $str);
+        $out = '';
+
+        for ($i = 0; $i < strlen($str); $i++)
+        {
+            if (in_array($str[$i], $allowedChars))
+            {
+                $out .= $str[$i];
+            }
+            else if (in_array(strtolower($str[$i]), $allowedChars))
+            {
+                $out .= strtolower($str[$i]);
+            }
+            else
+            {
+                $out .= ' ';
+            }
+        }
+        $out = str_replace('"', '", 0x22 ,"', $out);
+
+        if ($out !== '') $output[] = $out;
+    }
+
+    return $output;
+}
+
+function getOptionVal(string $option, string $fullvalue) : string
+{
+    $str = substr($fullvalue, strlen($option));
+    $str = trim($str, "'");
+    $str = trim($str, '"');
+    return $str;
+}
+
+function startsWith(string $needle, string $haystack) : bool
+{
+    if (strlen($needle) === strlen($haystack)) return false;
+    if (strpos($haystack, $needle) !== 0) return false;
+    return true;
+}
+
+function printHelp() : void
+{
+    printf("txt2scr v1.0\n");
+    printf("============\n");
+    printf("Converts a text file into a ACME compatible source file.\n\n");
+    printf("  Options:\n");
+    printf("    -h, --help      print this help\n");
+    printf("    -o \$filename    set output filename\n");
+    printf("    -u              allow uppercase letters\n");
+}
+
+function main(int $argc, array $argv) : int
+{
+    global $defaultChars;
+    global $uppercaseChars;
+
+    $allowedChars = [];
+    $outfile = 'out.asm';
+
+    if ($argc === 1 || $argv[1] === '-h' || $argv[1] === '--help')
+    {
+        printHelp();
+        return EXIT_SUCCESS;
+    }
+
+    for ($i = 0; $i < $argc; $i++)
+    {
+        if ($argv[$i] === '-o')
+        {
+            $outfile = $argv[$i+1] ?? 'out.asm';
+        }
+        else if (startsWith('-o', $argv[$i]))
+        {
+            $outfile = getOptionVal('-o', $argv[$i]);
+        }
+    }
+    printf("INFO: Outfilename %s\n", $outfile);
+
+    if (in_array("-u", $argv))
+    {
+        $allowedChars = array_merge($defaultChars, $uppercaseChars);
+        printf("INFO: Including uppercase chars.\n");
+    }
+    else
+    {
+        $allowedChars = $defaultChars;
+    }
+
+    $infile = $argv[$argc-1];
+    $input = @file_get_contents($infile);
+
+    if (!$input)
+    {
+        printf("ERROR: Couldn't open file %s\n", $infile);
+        return EXIT_FAILURE;
+    }
+
+    $converted = convert($input, $allowedChars);
+    $output = '';
+
+    foreach ($converted as $item)
+    {
+        $output .= sprintf('!scr "%s "' . PHP_EOL, $item);
+    }
+
+    if (file_put_contents($outfile, $output) === false)
+    {
+        printf("ERROR: Couldn't write file %s\n", $outfile);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+main($argc, $argv);

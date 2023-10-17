@@ -1,0 +1,2 @@
+this is an example scrolltext.
+you can write a couple of lines.
