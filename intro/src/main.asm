@@ -183,8 +183,8 @@ wait_irq_top:       +flag_clear irq_ready_top
                     beq -
                     rts
 ; --------------------------------------------------------------------------------
-wait_irq_bot:       +flag_clear wait_irq_bot
--                   +flag_get wait_irq_bot
+wait_irq_bot:       +flag_clear irq_ready_bot
+-                   +flag_get irq_ready_bot
                     beq -
                     rts
 ; ==============================================================================

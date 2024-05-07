@@ -21,9 +21,9 @@ $206B: init_zp
 $2075: nmi
 $2081: wait_irq_top
 $208A: wait_irq_bot
-$2095: mainloop
-$209B: framecounter
-$20AF: basicfade
+$2093: mainloop
+$2099: framecounter
+$20AD: basicfade
 $2200: irq
 $222D: irq_plus_cmp
 $2234: irq_next
